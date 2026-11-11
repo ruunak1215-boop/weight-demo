@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="重さデモA">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>研究デモA｜持ち上げと画面全体の明度変化</title>
+  <style>
+    :root{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;color:#171717}
+    *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overscroll-behavior:none}body{background:#fff}
+    #surface{position:fixed;inset:0;background:rgb(255,255,255);transition:background-color 45ms linear;touch-action:manipulation}
+    #surface:focus{outline:none}
+    .panel{position:fixed;z-index:3;left:50%;bottom:max(20px,env(safe-area-inset-bottom));transform:translateX(-50%);width:min(94vw,440px);padding:20px;border-radius:22px;background:rgba(255,255,255,.94);box-shadow:0 10px 40px #0002;border:1px solid #ddd;backdrop-filter:blur(14px);transition:opacity .18s}
+    .panel.hidden{opacity:0;pointer-events:none}
+    h1{font-size:18px;margin:0 0 8px}.intro{font-size:13px;color:#555;line-height:1.65;margin:0 0 14px}
+    .status{font-size:12px;color:#555;min-height:2.5em;line-height:1.5;margin:8px 0}
+    .tabs{display:flex;gap:6px;margin:12px 0}.tabs button{flex:1;background:#eee;color:#222;border:1px solid #ddd}
+    button{font:inherit;font-size:14px;border:0;border-radius:12px;padding:12px 14px;cursor:pointer}
+    button.primary{background:#161616;color:#fff;font-weight:700;flex:1}button.secondary{background:#eee;color:#111}button:disabled{opacity:.45}
+    .buttons{display:flex;gap:8px;margin-top:12px}.row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+    label{font-size:13px}input[type=range]{width:100%;accent-color:#222;margin:8px 0}
+    .data{font-size:13px;font-variant-numeric:tabular-nums;margin:7px 0;color:#555}.small{font-size:11px;color:#777;line-height:1.55}
+    .field{margin:10px 0}.field .row span:last-child{font-size:12px;color:#666}
+    .mode-inactive{display:none}
+    #exit{position:fixed;z-index:4;right:14px;top:max(14px,env(safe-area-inset-top));background:rgba(128,128,128,.72);color:#fff;opacity:0;pointer-events:none;transition:opacity .15s;font-size:12px;padding:8px 11px}
+    #exit.visible{opacity:1;pointer-events:auto}
+    .hint{position:fixed;z-index:2;left:50%;top:50%;transform:translate(-50%,-50%);background:#222;color:#fff;border-radius:30px;padding:12px 16px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s}.hint.show{opacity:1}
+    @media (prefers-reduced-motion:reduce){#surface{transition:none}}
+  </style>
+</head>
+<body>
+  <main id="surface" aria-label="明度変化を表示する画面"></main>
+  <button id="exit" type="button">操作画面に戻る</button>
+  <div id="hint" class="hint">画面をタップすると操作画面を表示</div>
+  <section class="panel" id="panel" aria-label="デモの操作">
+    <h1>研究デモ A｜全体の明度変化</h1>
+    <p class="intro">机上で開始し、スマホを弧を描くように持ち上げて顔へ向けます。<b>持ち上げ直後から暗くなり始め、途中から白→黒が加速</b>します。</p>
+    <div class="tabs">
+      <button type="button" id="sensorTab" aria-pressed="true">スマホの傾き</button>
+      <button type="button" id="manualTab" aria-pressed="false">手動で試す</button>
+    </div>
+    <div id="sensorSection">
+      <div class="field">
+        <div class="row"><label for="maxAngle">変化が完了する傾き</label><span id="maxAngleText">70°</span></div>
+        <input id="maxAngle" type="range" min="30" max="110" step="5" value="70">
+      </div>
+      <div class="field">
+        <div class="row"><label for="earlyDark">序盤の黒さ（動作30%時点）</label><span id="earlyDarkText">45%</span></div>
+        <input id="earlyDark" type="range" min="15" max="75" step="5" value="45">
+      </div>
+      <p class="small">画面を上にして机に置いた状態で「準備して開始」を押してください。開始時の端末角度を0°として記録します。※ 傾きを利用した近似です。腕の高さや弧の軌道は直接測定しません。</p>
+    </div>
+    <div id="manualSection" class="mode-inactive">
+      <div class="row"><label for="manual">持ち上げ動作の進行度</label><span id="manualText">0%</span></div>
+      <input type="range" id="manual" min="0" max="100" step="1" value="0">
+    </div>
+    <div class="data" id="measure">明度変化：0% ／ 動作進行度：0%</div>
+    <div class="status" id="status" role="status">準備中。スマホではSafari / Chromeのセンサー利用を許可してください。</div>
+    <div class="buttons">
+      <button class="primary" id="start">準備して開始</button>
+      <button class="secondary" id="reset">リセット</button>
+    </div>
+    <p class="small">iPhoneでアドレスバーを消したい場合は、Safariの共有 →「ホーム画面に追加」から起動してください。通常のSafariタブではブラウザのバーを完全には隠せません。</p>
+    <p class="small">テスト中は画面全体だけを表示します。画面をタップすると操作画面に戻れます。センサーが動かない場合は、手動モードで動きを確認できます。</p>
+  </section>
+<script>
+(()=>{
+  const $=id=>document.getElementById(id);
+  let mode='sensor', running=false, baseline=null, progress=0, filtered=0, lastAngle=null;
+  let sensorDetected=false, lastSensorAt=0, sensorKind='';
+  let tipTimer=null;
+  const maxAngle=$('maxAngle'), manual=$('manual'), earlyDark=$('earlyDark');
+  const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
+  // A: 持ち上げた序盤から黒を入れ、途中からさらに変化を加速する。
+  // 30%地点の暗さをスライダーで調整可能。0%は必ず白、100%は黒。
+  function curve(t){
+    t=clamp(t,0,1);
+    const early=Number(earlyDark.value)/100;
+    if(t<=.30) return early*(t/.30);
+    const x=(t-.30)/.70;
+    const smooth=x*x*(3-2*x);
+    return early+(1-early)*smooth;
+  }
+  function render(t){
+    progress=clamp(t,0,1);
+    const darkness=curve(progress), light=Math.round(255*(1-darkness));
+    $('surface').style.backgroundColor=`rgb(${light},${light},${light})`;
+    $('measure').textContent=`明度変化：${Math.round(darkness*100)}% ／ 動作進行度：${Math.round(progress*100)}%`;
+    if(mode==='manual'){manual.value=Math.round(progress*100);$('manualText').textContent=`${Math.round(progress*100)}%`}
+  }
+  function setStatus(s){$('status').textContent=s}
+  function setMode(m){
+    mode=m;running=false;baseline=null;filtered=0;
+    $('panel').classList.remove('hidden');$('exit').classList.remove('visible');
+    $('sensorSection').classList.toggle('mode-inactive',m!=='sensor');
+    $('manualSection').classList.toggle('mode-inactive',m!=='manual');
+    $('sensorTab').setAttribute('aria-pressed',m==='sensor');
+    $('manualTab').setAttribute('aria-pressed',m==='manual');
+    $('sensorTab').style.background=m==='sensor'?'#d8d8d8':'#eee';
+    $('manualTab').style.background=m==='manual'?'#d8d8d8':'#eee';
+    $('start').textContent=m==='sensor'?'準備して開始':'全画面で試す';
+    render(0);setStatus(m==='sensor'?'端末を机に置いてから開始してください。':'スライダーで持ち上げ動作を再現できます。');
+  }
+  function takeAngle(a,kind){
+    if(!Number.isFinite(a))return;
+    lastAngle=a;sensorDetected=true;lastSensorAt=Date.now();sensorKind=kind;
+    if(!running || mode!=='sensor')return;
+    if(baseline===null){baseline=a;filtered=0;}
+    const angle=clamp(Math.abs(a-baseline),0,180);
+    const fraction=clamp(angle/Number(maxAngle.value),0,1);
+    filtered=.72*filtered+.28*fraction;
+    render(filtered);
+  }
+  // beta は画面を上にした状態からの前後方向の回転とおおむね連動。
+  window.addEventListener('deviceorientation',e=>{
+    if(typeof e.beta==='number') takeAngle(e.beta,'姿勢角（beta）');
+  },{passive:true});
+  // orientationが取れない端末での代替。重力に対する画面法線の傾き（軸は区別しない）。
+  window.addEventListener('devicemotion',e=>{
+    if(sensorKind==='姿勢角（beta）' && Date.now()-lastSensorAt<1200)return;
+    const a=e.accelerationIncludingGravity;
+    if(!a || ![a.x,a.y,a.z].every(Number.isFinite))return;
+    const mag=Math.hypot(a.x,a.y,a.z);
+    if(mag<1)return;
+    const deg=Math.acos(clamp(Math.abs(a.z)/mag,0,1))*180/Math.PI;
+    takeAngle(deg,'重力方向から計算した傾き');
+  },{passive:true});
+  async function permissions(){
+    try{
+      if(typeof DeviceOrientationEvent!=='undefined' && typeof DeviceOrientationEvent.requestPermission==='function'){
+        const p=await DeviceOrientationEvent.requestPermission();
+        if(p!=='granted')return false;
+      }
+      if(typeof DeviceMotionEvent!=='undefined' && typeof DeviceMotionEvent.requestPermission==='function'){
+        // 補助センサー。拒否されても orientation が使えるなら続行。
+        try{await DeviceMotionEvent.requestPermission()}catch(e){}
+      }
+      return true;
+    }catch(e){setStatus('センサーの許可を取得できませんでした。手動モードを使ってください。');return false;}
+  }
+  function hidePanel(){ $('panel').classList.add('hidden');$('exit').classList.remove('visible'); }
+  function showPanel(){ $('panel').classList.remove('hidden');$('exit').classList.remove('visible');running=false; }
+  $('start').addEventListener('click',async()=>{
+    if(mode==='manual'){running=true;hidePanel();return;}
+    setStatus('センサーの許可を確認しています…');
+    const ok=await permissions();
+    if(!ok){setStatus('センサーが許可されませんでした。手動モードに切り替えて試してください。');return;}
+    if(!window.isSecureContext){setStatus('傾きセンサーはHTTPSまたはlocalhostで開く必要があります。手動モードは利用できます。');return;}
+    baseline=lastAngle;filtered=0;render(0);running=true;hidePanel();
+    clearTimeout(tipTimer);
+    tipTimer=setTimeout(()=>{
+      if(!sensorDetected || Date.now()-lastSensorAt>1500){showPanel();setStatus('センサー値を受け取れません。iPhoneはSafariからHTTPSで開き、動作と方向へのアクセスを許可してください。');}
+    },1800);
+  });
+  $('surface').addEventListener('click',()=>{if($('panel').classList.contains('hidden'))showPanel()});
+  $('exit').addEventListener('click',showPanel);
+  $('reset').addEventListener('click',()=>{baseline=null;filtered=0;render(0);setStatus('リセットしました。開始時の傾きを再記録します。')});
+  $('sensorTab').addEventListener('click',()=>setMode('sensor'));
+  $('manualTab').addEventListener('click',()=>setMode('manual'));
+  manual.addEventListener('input',()=>render(Number(manual.value)/100));
+  maxAngle.addEventListener('input',()=>{$('maxAngleText').textContent=`${maxAngle.value}°`});
+  earlyDark.addEventListener('input',()=>{$('earlyDarkText').textContent=`${earlyDark.value}%`;render(progress)});
+  setMode('sensor');
+})();
+</script>
+</body>
+</html>
