@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Demo C - 上から下へ / 白黒切替</title>
+  <style>
+    :root {
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-right: env(safe-area-inset-right, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-left: env(safe-area-inset-left, 0px);
+      --panel-bg: rgba(255,255,255,0.93);
+      --panel-border: rgba(0,0,0,0.08);
+      --accent: #0f766e;
+      --accent-2: #0ea5e9;
+      --text: #0f172a;
+      --muted: #475569;
+      --shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
+      color-scheme: light;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body {
+      margin: 0; width: 100%; height: 100%; overflow: hidden;
+      background: #111827;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans JP", sans-serif;
+      color: var(--text);
+    }
+    body {
+      position: fixed; inset: 0; overscroll-behavior: none; touch-action: manipulation;
+    }
+    #screen {
+      position: fixed; inset: 0; overflow: hidden; background: #111;
+    }
+    #baseLayer {
+      position: absolute; inset: 0; background: #111;
+    }
+    #risingLayer {
+      position: absolute; inset: 0; background: #fff; clip-path: inset(0 0 100% 0);
+      will-change: clip-path, background;
+    }
+    #softEdge {
+      position: absolute; left: 0; right: 0; top: 0; height: 24vh;
+      transform: translateY(-120%); pointer-events: none; will-change: top, opacity, height, background;
+      opacity: 0.8;
+    }
+    #subtleGlow {
+      position: absolute; inset: 0; pointer-events: none; opacity: 0; will-change: opacity, background;
+      background: radial-gradient(circle at 50% 18%, rgba(255,255,255,0.14), transparent 34%);
+    }
+
+    #overlay {
+      position: fixed; top: 0; left: 0; right: 0;
+      padding: calc(var(--safe-top) + 10px) calc(var(--safe-right) + 10px) calc(var(--safe-bottom) + 14px) calc(var(--safe-left) + 10px);
+      display: flex; flex-direction: column; gap: 10px; pointer-events: none;
+    }
+    .topRow { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+    .badge {
+      display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px;
+      background: rgba(255,255,255,0.84); border: 1px solid rgba(15,23,42,0.08);
+      border-radius: 999px; backdrop-filter: blur(10px); font-weight: 800; font-size: 14px; box-shadow: var(--shadow);
+    }
+    .badge small { font-weight: 700; color: var(--muted); font-size: 12px; }
+    .panel {
+      width: min(480px, 100%); background: var(--panel-bg); border: 1px solid var(--panel-border);
+      border-radius: 18px; box-shadow: var(--shadow); backdrop-filter: blur(12px); overflow: hidden; pointer-events: auto;
+    }
+    .panelHeader { padding: 14px 16px 8px; }
+    .panelTitle { margin: 0; font-size: 18px; font-weight: 900; line-height: 1.25; }
+    .panelSub { margin-top: 4px; color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .panelBody { padding: 0 16px 16px; display: grid; gap: 12px; }
+    .row { display: grid; gap: 6px; }
+    .rowLabel {
+      display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 13px; font-weight: 800;
+    }
+    .rowHint { color: var(--muted); font-size: 11px; line-height: 1.4; margin-top: -2px; }
+    .miniValue { color: var(--accent); font-weight: 900; font-variant-numeric: tabular-nums; }
+    input[type="range"] { width: 100%; margin: 0; accent-color: var(--accent); }
+    .buttonRow, .toggleRow, .presets { display: flex; flex-wrap: wrap; gap: 8px; }
+    button {
+      appearance: none; border: 0; border-radius: 999px; padding: 11px 14px; font-weight: 800; font-size: 14px;
+      background: #e2e8f0; color: #0f172a; cursor: pointer;
+    }
+    button.primary { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: white; }
+    button.secondary { background: #eff6ff; color: #0f172a; border: 1px solid rgba(14,165,233,0.14); }
+    button.ghost { background: rgba(255,255,255,0.7); border: 1px solid rgba(15,23,42,0.1); }
+    button:active { transform: translateY(1px) scale(0.99); }
+    .chip {
+      padding: 9px 12px; font-size: 12px; border-radius: 999px; background: #f1f5f9;
+      border: 1px solid rgba(15,23,42,0.08); cursor: pointer; font-weight: 700;
+    }
+    .chip.active { background: rgba(15,118,110,0.10); color: #115e59; border-color: rgba(15,118,110,0.26); }
+    .statusBox { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+    .statusItem {
+      padding: 10px 10px 9px; border-radius: 12px; background: rgba(248,250,252,0.95); border: 1px solid rgba(15,23,42,0.06);
+    }
+    .statusLabel { display: block; font-size: 11px; color: var(--muted); margin-bottom: 2px; }
+    .statusValue { display: block; font-size: 16px; font-weight: 900; font-variant-numeric: tabular-nums; }
+    .legend { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; color: var(--muted); font-size: 12px; line-height: 1.4; }
+    .legendSwatch { width: 16px; height: 16px; border-radius: 4px; border: 1px solid rgba(15,23,42,0.12); }
+    .notice {
+      font-size: 12px; line-height: 1.45; color: var(--muted); background: rgba(248,250,252,0.82);
+      border: 1px solid rgba(15,23,42,0.06); border-radius: 12px; padding: 10px 12px;
+    }
+    .hiddenWhenFullscreen { transition: opacity 0.15s ease; }
+    body.fullscreen-ui .hiddenWhenFullscreen { opacity: 0; pointer-events: none; }
+    .floatingTools {
+      position: fixed; right: calc(var(--safe-right) + 12px); bottom: calc(var(--safe-bottom) + 12px);
+      display: flex; gap: 8px; z-index: 5; opacity: 0.96; pointer-events: auto;
+    }
+    @media (max-width: 640px) {
+      .panel { width: 100%; }
+      .statusBox { grid-template-columns: 1fr 1fr; }
+      .panelTitle { font-size: 17px; }
+      .badge { font-size: 13px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="screen" aria-hidden="true">
+    <div id="baseLayer"></div>
+    <div id="risingLayer"></div>
+    <div id="softEdge"></div>
+    <div id="subtleGlow"></div>
+  </div>
+
+  <div id="overlay">
+    <div class="topRow hiddenWhenFullscreen">
+      <div class="badge">C案 <small>上から下への変化</small></div>
+      <div class="badge"><span id="sensorBadge">手動モード</span></div>
+    </div>
+
+    <div class="panel hiddenWhenFullscreen" id="controlPanel">
+      <div class="panelHeader">
+        <h1 class="panelTitle">白→黒 / 黒→白 切替デモ</h1>
+        <div class="panelSub">
+          持ち上げ動作に合わせて、画面の<strong>上から下へ領域が広がる</strong>C案です。<br>
+          色の向きは <strong>白→黒</strong> と <strong>黒→白</strong> を切り替えて比較できます。
+        </div>
+      </div>
+      <div class="panelBody">
+        <div class="buttonRow">
+          <button class="primary" id="requestMotionBtn">準備して開始</button>
+          <button class="secondary" id="manualModeBtn">手動で試す</button>
+          <button class="ghost" id="resetBtn">リセット</button>
+        </div>
+
+        <div class="row">
+          <div class="rowLabel"><span>色の向き</span><span class="miniValue" id="modeLabel">黒→白</span></div>
+          <div class="toggleRow" id="colorModeBox">
+            <button class="chip active" data-mode="darkToLight">黒→白</button>
+            <button class="chip" data-mode="lightToDark">白→黒</button>
+          </div>
+          <div class="rowHint">黒い画面の上から白が下降するか、白い画面の上から黒が下降するかを切り替えられます。</div>
+        </div>
+
+        <div class="statusBox">
+          <div class="statusItem">
+            <span class="statusLabel">進行度</span>
+            <span class="statusValue" id="progressValue">0%</span>
+          </div>
+          <div class="statusItem">
+            <span class="statusLabel">広がり量</span>
+            <span class="statusValue" id="fillValue">0%</span>
+          </div>
+          <div class="statusItem">
+            <span class="statusLabel">境界の高さ</span>
+            <span class="statusValue" id="edgeValue">上端</span>
+          </div>
+          <div class="statusItem">
+            <span class="statusLabel">表示モード</span>
+            <span class="statusValue" id="modeValue">黒→白</span>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="rowLabel"><span>手動スライダー</span><span class="miniValue" id="manualSliderValue">0%</span></div>
+          <input type="range" min="0" max="100" step="1" value="0" id="manualSlider" />
+          <div class="rowHint">持ち上げ動作の進行度を手動で再現できます。</div>
+        </div>
+
+        <div class="row">
+          <div class="rowLabel"><span>立ち上がりの早さ</span><span class="miniValue" id="earlyRiseValue">20%</span></div>
+          <input type="range" min="0" max="60" step="1" value="20" id="earlyRise" />
+          <div class="rowHint">序盤から変化をどれだけ見せるか。大きいほど早い段階から上部の色が変わります。</div>
+        </div>
+
+        <div class="row">
+          <div class="rowLabel"><span>途中の加速</span><span class="miniValue" id="boostValue">強め</span></div>
+          <input type="range" min="0" max="100" step="1" value="68" id="boostSlider" />
+          <div class="rowHint">中盤以降の下降の勢い。高いほど、途中から境界が素早く下へ移動します。</div>
+        </div>
+
+        <div class="row">
+          <div class="rowLabel"><span>境界のやわらかさ</span><span class="miniValue" id="softnessValue">18%</span></div>
+          <input type="range" min="0" max="35" step="1" value="18" id="softnessSlider" />
+          <div class="rowHint">白と黒の境目のぼかし具合です。</div>
+        </div>
+
+        <div class="row">
+          <div class="rowLabel"><span>変化完了の角度</span><span class="miniValue" id="maxAngleValue">48°</span></div>
+          <input type="range" min="20" max="80" step="1" value="48" id="maxAngleSlider" />
+          <div class="rowHint">この角度まで傾くと、画面全体の変化が完了します。</div>
+        </div>
+
+        <div class="row">
+          <div class="rowLabel"><span>プリセット</span></div>
+          <div class="presets" id="presetBox">
+            <button class="chip active" data-preset="lightfloat">ゆっくり下降</button>
+            <button class="chip" data-preset="fastlift">一気に下降</button>
+            <button class="chip" data-preset="smooth">なめらか</button>
+            <button class="chip" data-preset="lateboost">途中で解放</button>
+          </div>
+        </div>
+
+        <div class="legend" id="legendBox">
+          <span class="legendSwatch" id="legendBase"></span><span id="legendBaseText">下地：暗い画面</span>
+          <span class="legendSwatch" id="legendRise"></span><span id="legendRiseText">下降する領域：白</span>
+        </div>
+
+        <div class="notice">
+          <strong>狙い：</strong> スマホを持ち上げる一方で、画面内の色の境界を上から下へ進ませ、
+          「相対的な上昇感」や「軽快感」が出るかを探ります。<br>
+          同じ動きでも、<strong>黒→白</strong> と <strong>白→黒</strong> のどちらが軽く感じるか比較できます。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="floatingTools">
+    <button class="secondary" id="toggleFullscreenBtn">全画面表示</button>
+    <button class="ghost" id="togglePanelBtn">設定の表示/非表示</button>
+  </div>
+
+  <script>
+    const state = {
+      mode: 'manual',
+      progress: 0,
+      baselineBeta: null,
+      lastBeta: null,
+      maxAngle: 48,
+      earlyRise: 20,
+      boost: 68,
+      softness: 18,
+      preset: 'lightfloat',
+      colorMode: 'darkToLight',
+    };
+
+    const els = {
+      baseLayer: document.getElementById('baseLayer'),
+      risingLayer: document.getElementById('risingLayer'),
+      softEdge: document.getElementById('softEdge'),
+      subtleGlow: document.getElementById('subtleGlow'),
+      sensorBadge: document.getElementById('sensorBadge'),
+      progressValue: document.getElementById('progressValue'),
+      fillValue: document.getElementById('fillValue'),
+      edgeValue: document.getElementById('edgeValue'),
+      modeValue: document.getElementById('modeValue'),
+      manualSlider: document.getElementById('manualSlider'),
+      manualSliderValue: document.getElementById('manualSliderValue'),
+      requestMotionBtn: document.getElementById('requestMotionBtn'),
+      manualModeBtn: document.getElementById('manualModeBtn'),
+      resetBtn: document.getElementById('resetBtn'),
+      toggleFullscreenBtn: document.getElementById('toggleFullscreenBtn'),
+      togglePanelBtn: document.getElementById('togglePanelBtn'),
+      controlPanel: document.getElementById('controlPanel'),
+      earlyRise: document.getElementById('earlyRise'),
+      boostSlider: document.getElementById('boostSlider'),
+      softnessSlider: document.getElementById('softnessSlider'),
+      maxAngleSlider: document.getElementById('maxAngleSlider'),
+      earlyRiseValue: document.getElementById('earlyRiseValue'),
+      boostValue: document.getElementById('boostValue'),
+      softnessValue: document.getElementById('softnessValue'),
+      maxAngleValue: document.getElementById('maxAngleValue'),
+      presetBox: document.getElementById('presetBox'),
+      colorModeBox: document.getElementById('colorModeBox'),
+      modeLabel: document.getElementById('modeLabel'),
+      legendBase: document.getElementById('legendBase'),
+      legendRise: document.getElementById('legendRise'),
+      legendBaseText: document.getElementById('legendBaseText'),
+      legendRiseText: document.getElementById('legendRiseText'),
+    };
+
+    function clamp(value, min, max) { return Math.min(max, Math.max(min, value)); }
+    function mix(a, b, t) { return a + (b - a) * t; }
+    function describeBoost(value) {
+      if (value < 26) return '弱め';
+      if (value < 56) return '中くらい';
+      if (value < 81) return '強め';
+      return 'かなり強い';
+    }
+
+    function updateLabels() {
+      els.manualSliderValue.textContent = `${Math.round(state.progress)}%`;
+      els.earlyRiseValue.textContent = `${state.earlyRise}%`;
+      els.boostValue.textContent = describeBoost(state.boost);
+      els.softnessValue.textContent = `${state.softness}%`;
+      els.maxAngleValue.textContent = `${state.maxAngle}°`;
+      const modeText = state.colorMode === 'darkToLight' ? '黒→白' : '白→黒';
+      els.modeLabel.textContent = modeText;
+      els.modeValue.textContent = modeText;
+    }
+
+    function progressToFill(progressPercent) {
+      const p = clamp(progressPercent / 100, 0, 1);
+      const early = clamp(state.earlyRise / 100, 0, 0.6);
+      const boost = state.boost / 100;
+      const t1 = 0.28;
+      const t2 = 0.66;
+      let fill;
+      if (p <= t1) {
+        const local = p / t1;
+        fill = mix(0, early + boost * 0.08, Math.pow(local, 0.75));
+      } else if (p <= t2) {
+        const local = (p - t1) / (t2 - t1);
+        fill = mix(early + boost * 0.08, 0.58 + boost * 0.10, Math.pow(local, 1.12));
+      } else {
+        const local = (p - t2) / (1 - t2);
+        fill = mix(0.58 + boost * 0.10, 1, Math.pow(local, Math.max(0.45, 1.2 - boost * 0.8)));
+      }
+      return clamp(fill * 100, 0, 100);
+    }
+
+    function applyColorMode() {
+      const darkToLight = state.colorMode === 'darkToLight';
+      const baseColor = darkToLight ? '#181818' : '#ffffff';
+      const riseColor = darkToLight ? '#ffffff' : '#181818';
+      els.baseLayer.style.background = baseColor;
+      document.body.style.background = baseColor;
+      document.documentElement.style.background = baseColor;
+      els.risingLayer.style.background = riseColor;
+      if (darkToLight) {
+        els.softEdge.style.background = 'linear-gradient(to bottom, rgba(255,255,255,0.0) 0%, rgba(255,255,255,0.0) 18%, rgba(255,255,255,0.22) 45%, rgba(255,255,255,0.48) 60%, rgba(255,255,255,0.80) 75%, rgba(255,255,255,0.0) 100%)';
+        els.subtleGlow.style.background = 'radial-gradient(circle at 50% 18%, rgba(255,255,255,0.14), transparent 34%)';
+        els.legendBase.style.background = '#181818';
+        els.legendRise.style.background = '#ffffff';
+        els.legendBaseText.textContent = '下地：暗い画面';
+        els.legendRiseText.textContent = '下降する領域：白';
+      } else {
+        els.softEdge.style.background = 'linear-gradient(to bottom, rgba(0,0,0,0.0) 0%, rgba(0,0,0,0.0) 18%, rgba(0,0,0,0.12) 45%, rgba(0,0,0,0.28) 60%, rgba(0,0,0,0.52) 75%, rgba(0,0,0,0.0) 100%)';
+        els.subtleGlow.style.background = 'radial-gradient(circle at 50% 18%, rgba(0,0,0,0.10), transparent 34%)';
+        els.legendBase.style.background = '#ffffff';
+        els.legendRise.style.background = '#181818';
+        els.legendBaseText.textContent = '下地：白い画面';
+        els.legendRiseText.textContent = '下降する領域：黒';
+      }
+    }
+
+    function updateVisuals() {
+      const progress = clamp(state.progress, 0, 100);
+      const fillPercent = progressToFill(progress);
+      const bottomInset = clamp(100 - fillPercent, 0, 100);
+      const softnessVh = clamp(8 + state.softness * 0.8, 8, 36);
+      const edgeFromTop = clamp(fillPercent, 0, 100);
+      const glowOpacity = clamp(fillPercent / 100 * 0.60, 0, 0.60);
+
+      els.risingLayer.style.clipPath = `inset(0 0 ${bottomInset}% 0)`;
+      els.softEdge.style.height = `${softnessVh}vh`;
+      els.softEdge.style.top = `calc(${edgeFromTop}% - ${softnessVh / 2}vh)`;
+      els.softEdge.style.transform = 'none';
+      els.softEdge.style.opacity = (fillPercent <= 1 || fillPercent >= 99) ? 0 : clamp(0.35 + state.softness / 35 * 0.55, 0.35, 0.92);
+      els.subtleGlow.style.opacity = glowOpacity.toFixed(3);
+
+      els.progressValue.textContent = `${Math.round(progress)}%`;
+      els.fillValue.textContent = `${Math.round(fillPercent)}%`;
+      els.edgeValue.textContent = fillPercent <= 1 ? '上端' : (fillPercent >= 99 ? '下端' : `${Math.round(fillPercent)}%`);
+      els.manualSlider.value = Math.round(progress);
+      els.manualSliderValue.textContent = `${Math.round(progress)}%`;
+    }
+
+    function resetDemo() {
+      state.progress = 0;
+      state.baselineBeta = null;
+      state.lastBeta = null;
+      updateVisuals();
+    }
+
+    function setPreset(name) {
+      state.preset = name;
+      const presets = {
+        lightfloat: { earlyRise: 22, boost: 66, softness: 20, maxAngle: 48 },
+        fastlift:   { earlyRise: 28, boost: 88, softness: 12, maxAngle: 42 },
+        smooth:     { earlyRise: 18, boost: 46, softness: 26, maxAngle: 55 },
+        lateboost:  { earlyRise: 10, boost: 82, softness: 16, maxAngle: 50 },
+      };
+      const v = presets[name] || presets.lightfloat;
+      state.earlyRise = v.earlyRise;
+      state.boost = v.boost;
+      state.softness = v.softness;
+      state.maxAngle = v.maxAngle;
+      els.earlyRise.value = String(v.earlyRise);
+      els.boostSlider.value = String(v.boost);
+      els.softnessSlider.value = String(v.softness);
+      els.maxAngleSlider.value = String(v.maxAngle);
+      [...els.presetBox.querySelectorAll('.chip')].forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.preset === name);
+      });
+      updateLabels();
+      updateVisuals();
+    }
+
+    function setColorMode(mode) {
+      state.colorMode = mode;
+      [...els.colorModeBox.querySelectorAll('.chip')].forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.mode === mode);
+      });
+      applyColorMode();
+      updateLabels();
+      updateVisuals();
+    }
+
+    function setManualMode() { state.mode = 'manual'; els.sensorBadge.textContent = '手動モード'; }
+    function setSensorMode() { state.mode = 'sensor'; els.sensorBadge.textContent = 'センサーモード'; }
+
+    function handleOrientation(event) {
+      if (state.mode !== 'sensor') return;
+      const beta = event.beta;
+      if (typeof beta !== 'number' || Number.isNaN(beta)) return;
+      if (state.baselineBeta === null) state.baselineBeta = beta;
+      state.lastBeta = beta;
+      const delta = Math.abs(beta - state.baselineBeta);
+      state.progress = clamp((delta / state.maxAngle) * 100, 0, 100);
+      updateVisuals();
+    }
+
+    async function requestMotionAccess() {
+      try {
+        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+          const result = await DeviceOrientationEvent.requestPermission();
+          if (result !== 'granted') {
+            alert('モーションセンサーの許可が得られませんでした。手動モードでお試しください。');
+            return;
+          }
+        }
+        resetDemo();
+        setSensorMode();
+        window.addEventListener('deviceorientation', handleOrientation, { passive: true });
+      } catch (error) {
+        console.error(error);
+        alert('センサーの開始に失敗しました。手動モードでお試しください。');
+      }
+    }
+
+    els.requestMotionBtn.addEventListener('click', requestMotionAccess);
+    els.manualModeBtn.addEventListener('click', () => { setManualMode(); resetDemo(); });
+    els.resetBtn.addEventListener('click', resetDemo);
+    els.manualSlider.addEventListener('input', (e) => {
+      setManualMode();
+      state.progress = Number(e.target.value);
+      updateVisuals();
+    });
+    els.earlyRise.addEventListener('input', (e) => { state.earlyRise = Number(e.target.value); updateLabels(); updateVisuals(); });
+    els.boostSlider.addEventListener('input', (e) => { state.boost = Number(e.target.value); updateLabels(); updateVisuals(); });
+    els.softnessSlider.addEventListener('input', (e) => { state.softness = Number(e.target.value); updateLabels(); updateVisuals(); });
+    els.maxAngleSlider.addEventListener('input', (e) => { state.maxAngle = Number(e.target.value); updateLabels(); updateVisuals(); });
+    els.presetBox.addEventListener('click', (e) => {
+      const btn = e.target.closest('.chip'); if (!btn) return; setPreset(btn.dataset.preset);
+    });
+    els.colorModeBox.addEventListener('click', (e) => {
+      const btn = e.target.closest('.chip'); if (!btn) return; setColorMode(btn.dataset.mode);
+    });
+    els.toggleFullscreenBtn.addEventListener('click', () => {
+      document.body.classList.toggle('fullscreen-ui');
+      els.toggleFullscreenBtn.textContent = document.body.classList.contains('fullscreen-ui') ? '全画面を終了' : '全画面表示';
+    });
+    els.togglePanelBtn.addEventListener('click', () => {
+      const hidden = els.controlPanel.style.display === 'none';
+      els.controlPanel.style.display = hidden ? '' : 'none';
+    });
+
+    window.addEventListener('orientationchange', () => setTimeout(updateVisuals, 100));
+    window.addEventListener('resize', updateVisuals);
+
+    setPreset('lightfloat');
+    setColorMode('darkToLight');
+    updateLabels();
+    updateVisuals();
+  </script>
+</body>
+</html>
