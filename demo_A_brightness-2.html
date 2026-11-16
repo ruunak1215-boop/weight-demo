@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>研究デモ A</title>
+<style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;color:#171717;background:#fff;color-scheme:light;font-synthesis:none}*{box-sizing:border-box}body{margin:0;min-height:100vh;min-height:100dvh}button,input{font:inherit}button{cursor:pointer}button:focus-visible,input:focus-visible{outline:3px solid #1769e0;outline-offset:4px}[hidden]{display:none!important}
+#settings{max-width:460px;margin:auto;padding:max(24px,env(safe-area-inset-top)) 24px max(24px,env(safe-area-inset-bottom))}h1{font-size:25px;text-align:center;letter-spacing:.055em;margin:0 0 22px}h2,label.label{font-size:15px;font-weight:700;margin:0 0 10px;display:block;line-height:1.55}.section{border-top:1px solid #e6e6e6;padding:17px 0}.modes{display:grid;grid-template-columns:1fr 1fr;gap:9px}.mode{display:flex;justify-content:center;align-items:center;gap:8px;border:1px solid #d5d5d5;background:white;color:#191919;border-radius:11px;min-height:46px;font-weight:600;font-size:15px}.mode[aria-pressed=true]{background:#eef4ff;border:2px solid #2563c9;color:#174b9c}.sample{width:34px;height:13px;border-radius:3px;border:1px solid #adadad;flex-shrink:0}.wb{background:linear-gradient(90deg,#fff,#000)}.bw{background:linear-gradient(90deg,#000,#fff)}.value{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;margin:1px 0 2px;line-height:1.3}input[type=range]{display:block;width:100%;height:28px;margin:5px 0;accent-color:#2563c9;cursor:pointer}.ends{display:flex;justify-content:space-between;gap:8px;color:#626262;font-size:11px;line-height:1.45}.help{font-size:12px;color:#626262;line-height:1.55;margin:8px 0 0}.graph{display:block;width:100%;max-height:241px;overflow:visible}.graph text{fill:#505050;font-family:inherit}.graph .axis{stroke:#767676;stroke-width:1.15}.graph .grid{stroke:#e7e7e7;stroke-dasharray:3 4}.graph #line{stroke:#2563c9;stroke-width:3.2;fill:none;stroke-linejoin:round;stroke-linecap:round}.graph #handle{fill:#fff;stroke:#2563c9;stroke-width:2.5;cursor:ns-resize;touch-action:none}.graph #hit{fill:transparent;cursor:ns-resize;touch-action:none}.graph #finish{stroke:#a3a3a3;stroke-dasharray:4 4}.start{display:block;width:100%;min-height:52px;border:0;color:white;background:#171717;border-radius:12px;font-weight:700;font-size:17px}.start:disabled{opacity:.55;cursor:wait}.instructions{font-size:13px;line-height:1.6;margin:0 0 12px;color:#454545}.status{font-size:13px;color:#9b2929;line-height:1.6;margin:10px 0 0}.footer{text-align:center;font-size:11px;color:#666;line-height:1.5;margin:10px 0 0}#surface{position:fixed;inset:0;z-index:10;background:#fff;touch-action:manipulation;cursor:pointer;outline:0}body.running{overflow:hidden;overscroll-behavior:none}@media(max-width:360px){#settings{padding-left:16px;padding-right:16px}.mode{gap:5px}.sample{width:26px}}
+</style>
+</head>
+<body>
+<main id="settings">
+  <h1>研究デモ A</h1>
+  <section class="section" aria-labelledby="modeTitle">
+    <h2 id="modeTitle">画面の色の変化</h2>
+    <div class="modes" role="group" aria-labelledby="modeTitle">
+      <button class="mode" id="whiteBlack" type="button" aria-pressed="true">白 → 黒 <span class="sample wb" aria-hidden="true"></span></button>
+      <button class="mode" id="blackWhite" type="button" aria-pressed="false">黒 → 白 <span class="sample bw" aria-hidden="true"></span></button>
+    </div>
+  </section>
+  <section class="section">
+    <label class="label" for="angle">画面の色が完全に変わるときのスマホの角度</label>
+    <div class="value" id="angleValue">70°</div>
+    <input id="angle" type="range" min="10" max="90" step="1" value="70" aria-describedby="angleHelp">
+    <div class="ends"><span>10°</span><span>50°</span><span>90°</span></div>
+    <p class="help" id="angleHelp">机に置いた状態を0°、垂直に立てた状態を90°とします。</p>
+  </section>
+  <section class="section">
+    <h2>画面の色の変わり方</h2>
+    <svg id="graph" class="graph" viewBox="0 0 340 225" role="img" aria-label="スマホの傾きと画面の明るさの関係。グラフの丸または下のスライダーで変化のタイミングを調節できます。">
+      <g class="grid"><path d="M59 20H318 M59 57.5H318 M59 95H318 M59 132.5H318 M59 170H318"/><path d="M145.33 20V170 M231.67 20V170 M318 20V170"/></g>
+      <path class="axis" fill="none" d="M59 20V170H318"/>
+      <text id="axisTop" x="49" y="24" text-anchor="end" font-size="12">黒</text><text x="49" y="99" text-anchor="end" font-size="11">灰</text><text id="axisBottom" x="49" y="174" text-anchor="end" font-size="12">白</text>
+      <text x="13" y="95" transform="rotate(-90 13 95)" text-anchor="middle" font-size="12">画面の明るさ</text>
+      <g font-size="11" text-anchor="middle"><text x="59" y="188">0°</text><text x="145.33" y="188">30°</text><text x="231.67" y="188">60°</text><text x="318" y="188">90°</text></g>
+      <text x="188.5" y="211" text-anchor="middle" font-size="12">スマホの傾き（°）</text>
+      <line id="finish" x1="0" y1="20" x2="0" y2="170"/><path id="line"/><circle id="handle" r="6"/><circle id="hit" r="22"/>
+    </svg>
+    <label for="curve" class="label" style="font-size:13px;margin-bottom:1px">色が変わるタイミング</label>
+    <input id="curve" type="range" min="0.4" max="4" step="0.1" value="2">
+    <div class="ends"><span>最初に大きく変化</span><span>最後に大きく変化</span></div>
+    <p class="help">グラフの丸を上下に動かしても調節できます。</p>
+  </section>
+  <section class="section" style="padding-bottom:0">
+    <p class="instructions">スマホを画面が上になるように机に置き、スタートを押してください。</p>
+    <button class="start" id="start" type="button">スタート</button>
+    <p class="status" id="status" role="status" hidden></p>
+    <p class="footer">体験中は画面をタップすると設定に戻ります。</p>
+  </section>
+</main>
+<div id="surface" role="button" tabindex="0" aria-label="設定画面に戻る" hidden></div>
+<script>
+(()=>{
+'use strict';
+const $=id=>document.getElementById(id), angle=$('angle'), curve=$('curve'), settings=$('settings'), surface=$('surface'), start=$('start');
+const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
+let mode='wb', running=false, starting=false, baseline=null, baselineKind=null, lastOrientation=0, sample=null, timeout=null, lastGray=null;
+const gx=59, gy=20, gw=259, gh=150;
+function fraction(deg){return Math.pow(clamp(deg/Number(angle.value),0,1),Number(curve.value));}
+function brightness(deg){const f=fraction(deg);return mode==='wb'?1-f:f;}
+function graphY(deg){return gy+gh*(1-fraction(deg));}
+function updateGraph(){
+  $('axisTop').textContent=mode==='wb'?'黒':'白';
+  $('axisBottom').textContent=mode==='wb'?'白':'黒';
+  $('angleValue').textContent=angle.value+'°';
+  angle.setAttribute('aria-valuetext',angle.value+'度');
+  curve.setAttribute('aria-valuetext',Number(curve.value)<1?'最初に大きく変化':Number(curve.value)===1?'均等に変化':'最後に大きく変化（'+curve.value+'）');
+  const end=Number(angle.value), x=gx+gw*end/90;
+  $('finish').setAttribute('x1',x);$('finish').setAttribute('x2',x);
+  const degrees=Array.from({length:181},(_,i)=>i/2);degrees.push(end);degrees.sort((a,b)=>a-b);
+  $('line').setAttribute('d',degrees.map((a,i)=>(i?'L':'M')+(gx+gw*a/90).toFixed(2)+' '+graphY(a).toFixed(2)).join(' '));
+  for(const id of ['handle','hit']){$(id).setAttribute('cx',gx+gw*end/180);$(id).setAttribute('cy',graphY(end/2));}
+}
+function setMode(m){mode=m;$('whiteBlack').setAttribute('aria-pressed',String(m==='wb'));$('blackWhite').setAttribute('aria-pressed',String(m==='bw'));updateGraph();}
+$('whiteBlack').addEventListener('click',()=>setMode('wb'));$('blackWhite').addEventListener('click',()=>setMode('bw'));angle.addEventListener('input',updateGraph);curve.addEventListener('input',updateGraph);
+let dragId=null;
+function drag(e){const svg=$('graph'), p=svg.createSVGPoint();p.x=e.clientX;p.y=e.clientY;const matrix=svg.getScreenCTM();if(!matrix)return;const local=p.matrixTransform(matrix.inverse());const f=clamp(1-(local.y-gy)/gh,0.001,0.999);curve.value=(Math.round(clamp(Math.log(f)/Math.log(.5),.4,4)*10)/10).toFixed(1);updateGraph();}
+$('hit').addEventListener('pointerdown',e=>{e.preventDefault();dragId=e.pointerId;$('hit').setPointerCapture(e.pointerId);drag(e);});
+$('hit').addEventListener('pointermove',e=>{if(e.pointerId===dragId)drag(e);});
+for(const type of ['pointerup','pointercancel','lostpointercapture'])$('hit').addEventListener(type,()=>{dragId=null;});
+function showStatus(s){$('status').textContent=s;$('status').hidden=!s;}
+function paint(deg){const gray=Math.round(255*brightness(deg));if(gray===lastGray)return;lastGray=gray;const c=`rgb(${gray},${gray},${gray})`;surface.style.backgroundColor=c;document.documentElement.style.backgroundColor=c;document.body.style.backgroundColor=c;document.querySelector('meta[name="theme-color"]').setAttribute('content',gray<128?'#000000':'#ffffff');}
+function ingest(a,kind){if(!Number.isFinite(a))return;sample={a,kind,time:performance.now()};if(!running)return;if(baseline===null || kind!==baselineKind){baseline=a;baselineKind=kind;}const delta=kind==='orientation'?Math.abs(((a-baseline+540)%360)-180):Math.abs(a-baseline);paint(delta);}
+window.addEventListener('deviceorientation',e=>{if(!Number.isFinite(e.beta))return;lastOrientation=performance.now();ingest(e.beta,'orientation');},{passive:true});
+window.addEventListener('devicemotion',e=>{if(lastOrientation&&performance.now()-lastOrientation<1000)return;const a=e.accelerationIncludingGravity;if(!a||![a.x,a.y,a.z].every(Number.isFinite))return;const mag=Math.hypot(a.x,a.y,a.z);if(mag<1)return;ingest(Math.acos(clamp(Math.abs(a.z)/mag,0,1))*180/Math.PI,'motion');},{passive:true});
+async function permissions(){const requests=[];for(const type of [window.DeviceOrientationEvent,window.DeviceMotionEvent]){if(type&&typeof type.requestPermission==='function'){try{requests.push(Promise.resolve(type.requestPermission()).catch(()=> 'denied'));}catch{requests.push(Promise.resolve('denied'));}}}if(!requests.length)return true;return (await Promise.all(requests)).some(p=>p==='granted');}
+function restore(message=''){running=false;starting=false;baseline=null;baselineKind=null;clearTimeout(timeout);surface.hidden=true;settings.hidden=false;document.body.classList.remove('running');document.documentElement.style.backgroundColor='#fff';document.body.style.backgroundColor='#fff';document.querySelector('meta[name="theme-color"]').setAttribute('content','#ffffff');start.disabled=false;start.textContent='スタート';showStatus(message);}
+start.addEventListener('click',async()=>{
+ if(starting||running)return;showStatus('');if(!window.isSecureContext){showStatus('傾きセンサーを使うには、HTTPSのWebページをスマホで開いてください。');return;}
+ if(!window.DeviceOrientationEvent&&!window.DeviceMotionEvent){showStatus('このブラウザは傾きセンサーに対応していません。スマホのSafariなどで開いてください。');return;}
+ starting=true;start.disabled=true;start.textContent='準備中…';
+ try{if(!await permissions()){restore('傾きセンサーへのアクセスを許可してください。');return;}}catch{restore('センサーを利用できません。Safariの設定を確認してください。');return;}
+ const ready=()=>sample&&performance.now()-sample.time<500;
+ const until=performance.now()+1800;
+ while(!ready()&&performance.now()<until){await new Promise(r=>setTimeout(r,40));}
+ if(!ready()){restore('傾きセンサーの値を取得できません。スマホのSafariで開き、動作と方向へのアクセスを許可してください。');return;}
+ baseline=sample.a;baselineKind=sample.kind;lastGray=null;running=true;starting=false;paint(0);settings.hidden=true;surface.hidden=false;document.body.classList.add('running');surface.focus({preventScroll:true});
+ timeout=setTimeout(function check(){if(!running)return;if(!sample||performance.now()-sample.time>2000){restore('センサーとの接続が切れました。もう一度スタートしてください。');return;}timeout=setTimeout(check,1000);},2000);
+});
+surface.addEventListener('click',()=>restore());surface.addEventListener('keydown',e=>{if(['Enter',' ','Escape'].includes(e.key)){e.preventDefault();restore();start.focus();}});
+updateGraph();
+})();
+</script>
+</body>
+</html>
