@@ -1,0 +1,94 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"><meta name="theme-color" content="#ffffff"><title>研究デモE｜凹みの変化</title><style>
+*{box-sizing:border-box}body{margin:0;background:#fff;color:#171717;font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif}button,input{font:inherit}#settings{max-width:680px;margin:auto;padding:24px 20px 42px}h1{text-align:center;font-size:32px;letter-spacing:.04em;margin:4px 0 26px}section.group{border-top:1px solid #dedede;padding:25px 0 27px}h2{font-size:19px;margin:0 0 18px;font-weight:750}.choices{display:grid;grid-template-columns:1fr 1fr;gap:12px}.choice{background:white;border:2px solid #d6d6d6;border-radius:16px;padding:17px 6px;min-height:72px;font-size:16px;font-weight:700;color:#171717}.choice.active{background:#edf3ff;border:3px solid #2862ca;color:#1d55af}.bigval{font-size:34px;font-weight:750;margin:8px 0 13px}.range{width:100%;accent-color:#2862ca;height:28px;margin:0}.ticks{display:flex;justify-content:space-between;font-size:14px;color:#606060;margin-top:10px}.hint{font-size:13px;color:#696969;line-height:1.6;margin:12px 0 0}.graphWrap{position:relative;width:100%;margin:6px 0 12px}.graphWrap svg{display:block;width:100%;height:auto}.graphTitle{font-size:15px;font-weight:700;margin:22px 0 7px}.graphNote{font-size:13px;color:#666;margin:0}.primary{background:#2862ca;border:0;color:#fff;border-radius:14px;padding:17px;width:100%;font-size:19px;font-weight:750;cursor:pointer;margin-top:14px}#experience{display:none;position:fixed;inset:0;background:#fff;overflow:hidden}#canvas{display:block;width:100%;height:100%}#exit{position:absolute;right:12px;top:max(12px,env(safe-area-inset-top));border:1px solid #ddd;background:#ffffffed;border-radius:11px;padding:10px 15px;font-weight:600}#status{font-size:12px;color:#666;margin-top:10px}@media(min-width:720px){#settings{padding-top:30px}h1{font-size:38px}}@media(max-width:380px){.choice{font-size:14px;padding:12px 3px}h1{font-size:28px}}
+</style></head><body><main id="settings"><h1>研究デモ E</h1>
+<section class="group"><h2>画面の変化</h2><div class="choices"><button class="choice active" data-direction="flatToDent">直角に交わる → 凹み</button><button class="choice" data-direction="dentToFlat">凹み → 直角に交わる</button></div></section>
+<section class="group"><h2>画面の変化が完了するときのスマホの角度</h2><div class="bigval" id="endAngleOut">70°</div><input class="range" id="endAngle" type="range" min="10" max="90" step="5" value="70"><div class="ticks"><span>10°</span><span>50°</span><span>90°</span></div><p class="hint">机に置いた状態を0°、垂直に立てた状態を90°とします。</p></section>
+<section class="group"><h2>画面の変わり方</h2><div class="graphWrap"><svg id="curveGraph" viewBox="0 0 580 320" role="img" aria-label="スマホの傾きと画面の凹み具合のグラフ"><g id="graphContents"></g></svg></div><div class="graphTitle">変化するタイミング</div><input class="range" id="timing" type="range" min="-100" max="100" step="5" value="0"><div class="ticks"><span>前半に大きく変化</span><span>一定</span><span>後半に大きく変化</span></div><p class="hint">スライダーを動かすとグラフの曲がり方が変わります。</p></section>
+<section class="group"><h2>最大の変形具合</h2><div class="bigval" id="deformOut">70%</div><input class="range" id="deform" type="range" min="0" max="70" step="5" value="70"><div class="ticks"><span>0%</span><span>35%</span><span>70%</span></div><p class="hint">凹みが最も大きいときの格子線の曲がり具合です。</p></section>
+<section class="group"><h2>影の濃さ</h2><div class="bigval" id="shadeOut">48%</div><input class="range" id="shade" type="range" min="0" max="100" step="1" value="48"><div class="ticks"><span>0%</span><span>50%</span><span>100%</span></div><p class="hint">下側に濃い影、上側に薄い影が広がる表現はそのままです。</p></section>
+<p class="hint">iPhone Safariではスタート後に傾きセンサーの許可を求めます。</p><button class="primary" id="start">スタート</button><div id="status" aria-live="polite"></div></main>
+<section id="experience"><canvas id="canvas"></canvas><button id="exit">終了</button></section>
+<script>
+'use strict';const $=id=>document.getElementById(id);let direction='flatToDent',active=false,angle=0,manualOverride=false,haveSensor=false;const val=id=>Number($(id).value);let settings={};const clamp=x=>Math.max(0,Math.min(1,x));
+function progressAt(a){const t=clamp(a/settings.end),timing=val('timing')/100,k=1+Math.abs(timing)*4;const f=timing<0?1-Math.pow(1-t,k):timing>0?Math.pow(t,k):t;return direction==='flatToDent'?f:1-f}
+function progression(a){return progressAt(a)}
+function updateSettings(){settings={end:val('endAngle'),deform:val('deform')/100,shade:val('shade')/100};$('endAngleOut').textContent=val('endAngle')+'°';$('deformOut').textContent=val('deform')+'%';$('shadeOut').textContent=val('shade')+'%';drawGraph()}
+['endAngle','deform','shade','timing'].forEach(id=>$(id).addEventListener('input',updateSettings));document.querySelectorAll('[data-direction]').forEach(b=>b.addEventListener('click',()=>{direction=b.dataset.direction;document.querySelectorAll('[data-direction]').forEach(x=>x.classList.toggle('active',x===b));updateSettings()}));
+function fitCanvas(c){const r=c.getBoundingClientRect(),d=Math.min(2,window.devicePixelRatio||1),w=Math.max(1,Math.round(r.width*d)),h=Math.max(1,Math.round(r.height*d));if(c.width!==w||c.height!==h){c.width=w;c.height=h}return {ctx:c.getContext('2d'),w,h}}
+function draw(c,a){
+ const {ctx,w,h}=fitCanvas(c),p=progression(a),D=settings.deform*p,S=settings.shade*p;
+ ctx.clearRect(0,0,w,h);ctx.fillStyle='#fff';ctx.fillRect(0,0,w,h);
+ // Reference: the depression is an oval basin, slightly below screen center.
+ // Its lower wall is darker than its upper wall; the shadow is NOT a symmetric radial halo.
+ const cx=w*.50,cy=h*.525,rx=w*.355,ry=h*.245;
+ const smooth=(t)=>{t=Math.max(0,Math.min(1,t));return t*t*(3-2*t)};
+ const envelope=(x,y)=>Math.exp(-1.45*((x-cx)/rx)**2-1.12*((y-cy)/ry)**2);
+ function warp(x,y){
+   const e=envelope(x,y);
+   const edgeX=smooth(Math.min(x,w-x)/(w*.13));
+   const edgeY=smooth(Math.min(y,h-y)/(h*.12));
+   const weight=edgeX*edgeY;
+   // Pull vertical lines inward at the bowl walls. Horizontal lines dip down.
+   const xPull=D*.44*e*weight;
+   const yPull=D*h*.105*e*weight;
+   return [x-(x-cx)*xPull,y+yPull];
+ }
+ // Elliptical bowl lighting: broad, very faint upper haze and a compact,
+ // darker lower-weighted core. Both layers fade smoothly at the oval edge.
+ if(S>0){
+   const shadowCy=cy+h*.055;
+   const left=cx-rx*1.30, top=shadowCy-ry*1.55;
+   const width=rx*2.60,height=ry*3.10;
+   const iw=Math.max(1,Math.ceil(width)),ih=Math.max(1,Math.ceil(height));
+   const img=ctx.createImageData(iw,ih);
+   for(let py=0;py<ih;py++){
+     const y=top+py*height/ih;
+     const v=(y-shadowCy)/ry;
+     for(let px=0;px<iw;px++){
+       const x=left+px*width/iw;
+       const u=(x-cx)/rx;
+       // Outer oval remains softly circular/elliptical rather than a flat band.
+       const upperHaze=Math.exp(-1.85*(u*u+Math.pow((v+.24)/1.20,2)));
+       // Dark weight sits below center; keep it rounded and localized.
+       const lowerCore=Math.exp(-3.5*(u*u/0.85**2+Math.pow((v-.52)/.64,2)));
+       const lowerRim=Math.exp(-4.1*(u*u/1.08**2+Math.pow((v-.79)/.42,2)));
+       const upperWeight=v<0 ? .16 : .16+.09*Math.min(1,v);
+       const alpha=Math.min(.85,S*(.20*upperHaze + .98*lowerCore + .33*lowerRim + upperWeight*upperHaze)) * 255;
+       const k=(py*iw+px)*4;
+       img.data[k]=46;img.data[k+1]=47;img.data[k+2]=51;img.data[k+3]=Math.round(alpha);
+     }
+   }
+   const tmp=document.createElement('canvas');tmp.width=iw;tmp.height=ih;
+   tmp.getContext('2d').putImageData(img,0,0);
+   ctx.drawImage(tmp,left,top,width,height);
+ }
+ const spacing=Math.max(27,Math.min(w/9.2,h/17));
+ ctx.strokeStyle='#161719';ctx.lineWidth=Math.max(1,Math.min(2,(window.devicePixelRatio||1)*.78));
+ ctx.lineCap='round';ctx.lineJoin='round';
+ // Horizontal lines have deep, smooth U-shaped curves around the middle.
+ for(let y=spacing*.48;y<h;y+=spacing){
+   ctx.beginPath();const steps=Math.max(100,Math.ceil(w/3));
+   for(let i=0;i<=steps;i++){
+     const x=w*i/steps,q=warp(x,y);
+     const horizontal=Math.exp(-Math.pow((x-cx)/(w*.31),2)*1.8);
+     const vertical=Math.exp(-Math.pow((y-cy)/(h*.29),2)*1.35);
+     const sag=D*h*.175*horizontal*vertical*smooth(Math.min(x,w-x)/(w*.14));
+     if(i===0)ctx.moveTo(q[0],q[1]+sag);else ctx.lineTo(q[0],q[1]+sag);
+   }ctx.stroke();
+ }
+ // Vertical lines lean toward the depression without changing the outer frame.
+ for(let x=spacing*.48;x<w;x+=spacing){
+   ctx.beginPath();const steps=Math.max(110,Math.ceil(h/3));
+   for(let i=0;i<=steps;i++){
+     const y=h*i/steps,q=warp(x,y);
+     if(i===0)ctx.moveTo(q[0],q[1]);else ctx.lineTo(q[0],q[1]);
+   }ctx.stroke();
+ }
+}
+
+function drawGraph(){const el=$('graphContents'),left=100,right=548,top=22,bottom=268,W=right-left,H=bottom-top;const yFor=p=>bottom-p*H;let out='';for(let i=0;i<=4;i++){let y=top+i*H/4;out+=`<line x1="${left}" y1="${y}" x2="${right}" y2="${y}" stroke="#e2e2e2" stroke-dasharray="5 7"/>`;}for(let i=0;i<=3;i++){let x=left+i*W/3;out+=`<line x1="${x}" y1="${top}" x2="${x}" y2="${bottom}" stroke="#e2e2e2" stroke-dasharray="5 7"/>`;}out+=`<path d="M${left} ${top}V${bottom}H${right}" fill="none" stroke="#888" stroke-width="2"/>`;out+=`<text x="${left-14}" y="${top+5}" text-anchor="end" fill="#555" font-size="17">凹み</text><text x="${left-14}" y="${bottom+5}" text-anchor="end" fill="#555" font-size="17">直角</text>`;for(const a of [0,30,60,90]){const x=left+a/90*W;out+=`<text x="${x}" y="${bottom+27}" text-anchor="middle" fill="#555" font-size="17">${a}°</text>`}out+=`<text x="${(left+right)/2}" y="${bottom+48}" text-anchor="middle" fill="#555" font-size="17">スマホの傾き（°）</text>`;let path='';for(let a=0;a<=90;a++){const x=left+a/90*W,y=yFor(progressAt(a));path+=(a===0?'M':'L')+x.toFixed(2)+' '+y.toFixed(2)+' '}out+=`<path d="${path}" fill="none" stroke="#2862ca" stroke-width="5" stroke-linecap="round"/>`;el.innerHTML=out}
+function render(){if(!active)return;draw($('canvas'),angle)}
+function sensorHandler(e){if(!active||manualOverride)return;const beta=e.beta,gamma=e.gamma;if(beta==null||gamma==null)return;const b=beta*Math.PI/180,g=gamma*Math.PI/180,cosNormal=Math.abs(Math.cos(b)*Math.cos(g)),tilt=Math.acos(Math.max(0,Math.min(1,cosNormal)))*180/Math.PI;if(!Number.isFinite(tilt))return;haveSensor=true;angle=Math.max(0,Math.min(90,tilt));render()}
+async function start(){updateSettings();active=true;angle=0;manualOverride=false;haveSensor=false;$('settings').style.display='none';$('experience').style.display='block';render();try{if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){const permission=await DeviceOrientationEvent.requestPermission();if(permission!=='granted')throw Error('センサー許可がありません')}window.addEventListener('deviceorientation',sensorHandler,true);}catch(e){console.warn('傾きセンサーを利用できません',e)}}
+$('start').addEventListener('click',start);$('exit').addEventListener('click',()=>{active=false;window.removeEventListener('deviceorientation',sensorHandler,true);$('experience').style.display='none';$('settings').style.display='block';updateSettings()});window.addEventListener('resize',()=>{if(active)render()});updateSettings();
+</script></body></html>
